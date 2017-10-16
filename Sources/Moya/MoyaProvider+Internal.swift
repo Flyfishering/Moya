@@ -28,11 +28,23 @@ public extension MoyaProvider {
         let cancellableToken = CancellableWrapper()
 
         // Allow plugins to modify response
+        // 解释下这个方法:
+        /*
+         $1 是列表self.plugins 中的每一个元素 (即: PluginType 是一个协议 专门处理 result 的)
+         $0 是每次计算后的结果, 初始值是 result 
+         
+         下面的方法就是 不停的用 PluginType 的方法处理 result 数据
+         最后的结果就是 processedResult
+         
+         把结果 processedResult 装入到闭包 completion中
+         
+         pluginsWithCompletion 就是处理最终结果 result 的过程的闭包
+         */
         let pluginsWithCompletion: Moya.Completion = { result in
             let processedResult = self.plugins.reduce(result) { $1.process($0, target: target) }
             completion(processedResult)
         }
-
+        // 没看懂那个这段代码
         if trackInflights {
             objc_sync_enter(self)
             var inflightCompletionBlocks = self.inflightRequests[endpoint]
@@ -50,6 +62,8 @@ public extension MoyaProvider {
         }
 
         let performNetworking = { (requestResult: Result<URLRequest, MoyaError>) in
+            
+            // 取消操作
             if cancellableToken.isCancelled {
                 self.cancelCompletion(pluginsWithCompletion, target: target)
                 return
@@ -57,9 +71,12 @@ public extension MoyaProvider {
 
             var request: URLRequest!
 
+            
             switch requestResult {
             case .success(let urlRequest):
+                // 获取request
                 request = urlRequest
+                // 转化 request 失败
             case .failure(let error):
                 pluginsWithCompletion(.failure(error))
                 return
@@ -90,6 +107,8 @@ public extension MoyaProvider {
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
 
+    // 不同 stubBehavior 开启不同的测试数据返回
+    // 不同的 request Task 开启不同的网络请求
     private func performRequest(_ target: Target, request: URLRequest, callbackQueue: DispatchQueue?, progress: Moya.ProgressBlock?, completion: @escaping Moya.Completion, endpoint: Endpoint<Target>, stubBehavior: Moya.StubBehavior) -> Cancellable {
         switch stubBehavior {
         case .never:
@@ -111,7 +130,9 @@ public extension MoyaProvider {
         }
     }
 
+    /// 取消请求操作, 插件做取消处理  completion 闭包做失败操作.
     func cancelCompletion(_ completion: Moya.Completion, target: Target) {
+        ///
         let error = MoyaError.underlying(NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled, userInfo: nil), nil)
         plugins.forEach { $0.didReceive(.failure(error), target: target) }
         completion(.failure(error))
@@ -195,8 +216,12 @@ private extension MoyaProvider {
         return self.sendAlamofireRequest(alamoRequest, target: target, callbackQueue: callbackQueue, progress: progress, completion: completion)
     }
 
+    // 基本 网络请求
     func sendRequest(_ target: Target, request: URLRequest, callbackQueue: DispatchQueue?, progress: Moya.ProgressBlock?, completion: @escaping Moya.Completion) -> CancellableToken {
+       
+        // request 
         let initialRequest = manager.request(request as URLRequestConvertible)
+        /// 是否要经验验证
         let alamoRequest = target.validate ? initialRequest.validate() : initialRequest
         return sendAlamofireRequest(alamoRequest, target: target, callbackQueue: callbackQueue, progress: progress, completion: completion)
     }
@@ -204,22 +229,28 @@ private extension MoyaProvider {
     func sendAlamofireRequest<T>(_ alamoRequest: T, target: Target, callbackQueue: DispatchQueue?, progress progressCompletion: Moya.ProgressBlock?, completion: @escaping Moya.Completion) -> CancellableToken where T: Requestable, T: Request {
         // Give plugins the chance to alter the outgoing request
         let plugins = self.plugins
+        /// 插件在请求前的操作
         plugins.forEach { $0.willSend(alamoRequest, target: target) }
-
+        /// request
         var progressAlamoRequest = alamoRequest
+        
+        /// progressCompletion 执行
         let progressClosure: (Progress) -> Void = { progress in
             let sendProgress: () -> Void = {
                 progressCompletion?(ProgressResponse(progress: progress))
             }
 
             if let callbackQueue = callbackQueue {
+                /// 在 线程 callbackQueue 中 执行 sendProgress
                 callbackQueue.async(execute: sendProgress)
             } else {
+                /// 在当亲线程 执行 sendProgress
                 sendProgress()
             }
         }
 
         // Perform the actual request
+        // 进度和过程处理
         if progressCompletion != nil {
             switch progressAlamoRequest {
             case let downloadRequest as DownloadRequest:
@@ -238,10 +269,15 @@ private extension MoyaProvider {
             }
         }
 
+        // 处理请求道的结果
         let completionHandler: RequestableCompletion = { response, request, data, error in
+            
+            /// 网络请求结果  Result<Moya.Response, MoyaError>
             let result = convertResponseToResult(response, request: request, data: data, error: error)
             // Inform all plugins about the response
+            /// 通知所有插件响应 请求结果
             plugins.forEach { $0.didReceive(result, target: target) }
+            
             if let progressCompletion = progressCompletion {
                 switch progressAlamoRequest {
                 case let downloadRequest as DownloadRequest:

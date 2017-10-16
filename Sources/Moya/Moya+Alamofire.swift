@@ -29,9 +29,10 @@ public typealias DownloadDestination = Alamofire.DownloadRequest.DownloadFileDes
 extension Request: RequestType { }
 
 /// Internal token that can be used to cancel requests
+/// 内部令牌 可以用来取消请求
 public final class CancellableToken: Cancellable, CustomDebugStringConvertible {
     let cancelAction: () -> Void
-    let request: Request?
+    let request: Request? //Alamofire.Request
     public fileprivate(set) var isCancelled = false
 
     fileprivate var lock: DispatchSemaphore = DispatchSemaphore(value: 1)
@@ -64,9 +65,10 @@ public final class CancellableToken: Cancellable, CustomDebugStringConvertible {
     }
 
 }
-
+/// 处理请求结果 (response, request data, error)
 internal typealias RequestableCompletion = (HTTPURLResponse?, URLRequest?, Data?, Swift.Error?) -> Void
 
+// 
 internal protocol Requestable {
     func response(callbackQueue: DispatchQueue?, completionHandler: @escaping RequestableCompletion) -> Self
 }

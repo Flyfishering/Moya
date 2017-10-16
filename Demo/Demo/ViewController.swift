@@ -25,6 +25,8 @@ class ViewController: UITableViewController {
     // MARK: - API Stuff
 
     func downloadRepositories(_ username: String) {
+        
+        // 开始网络请求
         GitHubProvider.request(.userRepositories(username)) { result in
             do {
                 let response = try result.dematerialize()

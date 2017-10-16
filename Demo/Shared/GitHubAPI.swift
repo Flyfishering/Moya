@@ -3,9 +3,12 @@ import Moya
 
 // MARK: - Provider setup
 
+/// json 格式化 data
 private func JSONResponseDataFormatter(_ data: Data) -> Data {
     do {
+        // data 对象 转 json 对象
         let dataAsJSON = try JSONSerialization.jsonObject(with: data)
+        // json 对象 转 data 对象
         let prettyData =  try JSONSerialization.data(withJSONObject: dataAsJSON, options: .prettyPrinted)
         return prettyData
     } catch {
@@ -13,20 +16,22 @@ private func JSONResponseDataFormatter(_ data: Data) -> Data {
     }
 }
 
+// 初始化 网络请求对象  MoyaProvider 是网络请求的起点
 let GitHubProvider = MoyaProvider<GitHub>(plugins: [NetworkLoggerPlugin(verbose: true, responseDataFormatter: JSONResponseDataFormatter)])
 
 // MARK: - Provider support
 
 private extension String {
+    /// url 转码 百分号编码
     var urlEscaped: String {
         return self.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed)!
     }
 }
 
 public enum GitHub {
-    case zen
-    case userProfile(String)
-    case userRepositories(String)
+    case zen // 不知道
+    case userProfile(String)// 项目组合表
+    case userRepositories(String)// 库
 }
 
 extension GitHub: TargetType {

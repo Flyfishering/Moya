@@ -13,12 +13,15 @@ public protocol TargetType {
     var method: Moya.Method { get }
 
     /// Provides stub data for use in testing.
+    /// 测试数据
     var sampleData: Data { get }
 
     /// The type of HTTP task to be performed.
+    /// 网络任务
     var task: Task { get }
 
     /// Whether or not to perform Alamofire validation. Defaults to `false`.
+    /// 是否要验证
     var validate: Bool { get }
 
     // The headers to be used in the request.
